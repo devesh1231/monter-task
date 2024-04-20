@@ -8,8 +8,8 @@ function sendMail(fromEmail, toEmail, subject, text) {
     secure: false, // true for 587, false for other ports
     requireTLS: true,
     auth: {
-      user: 'deveshpathak67@gmail.com',
-      pass: 'xecc zivi btvh fajm'
+      user: process.env.ADMIN_EMAIL,
+      pass: process.env.ADMIN_PASSOWRD,
     }
   });
 

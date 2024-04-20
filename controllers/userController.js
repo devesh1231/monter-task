@@ -1,6 +1,8 @@
 const User = require('../model/userModel.js');
 const otpGenerator = require('otp-generator')
 const { sendMail } = require('../util/nodeMailer.js')
+const { generateJWTToken } = require('../config/jwtToken.js')
+const bcrypt = require('bcrypt');
 const register = async (req, res) => {
   try {
 
@@ -23,7 +25,7 @@ const register = async (req, res) => {
       });
       const savedUser = await newUser.save();
       res.status(201).json({
-        success: true,
+        status: true,
         data: savedUser,
         message: 'User registered successfully'
       });
@@ -31,7 +33,7 @@ const register = async (req, res) => {
   } catch (error) {
     console.error('Error registering user:', error);
     res.status(500).json({
-      success: false,
+      status: false,
       data: "",
       error: 'Internal Server Error'
     });
@@ -43,7 +45,7 @@ const otpVerification = async (req, res) => {
     const { otp, email } = req.body;
     const user = await User.findOne({ email: email });
     if (!user) {
-      return res.json({
+      return res.status(400).json({
         status: false,
         data: "",
         message: "You are not registered"
@@ -51,13 +53,13 @@ const otpVerification = async (req, res) => {
     }
     if (user.emailOtp === otp) {
       const updateUser = await User.findOneAndUpdate({ email: email }, { emailOtp: "", otpVerified: true }, { new: true });
-      return res.json({
+      return res.status(201).json({
         status: true,
         data: updateUser,
         message: "OTP verified successfully"
       });
     } else {
-      return res.json({
+      return res.status(500).json({
         status: false,
         data: "",
         message: "Incorrect OTP"
@@ -80,14 +82,14 @@ const updateUserDetails = async (req, res) => {
     const { age, location, workDetails } = req.body;
     const user = await User.findById(id)
     if (!user) {
-      return res.json({
+      return res.status(400).json({
         status: false,
         data: "",
         message: "User not found"
       });
     }
     if (!user.otpVerified) {
-      return res.json({
+      return res.status(400).json({
         status: false,
         data: "",
         message: "User is not verified"
@@ -99,7 +101,7 @@ const updateUserDetails = async (req, res) => {
       { age: age, location: location, workDetails: workDetails },
       { new: true } // Return the updated user document
     );
-    return res.json({
+    return res.status(201).json({
       status: true,
       data: updateUser,
       message: "User details updated successfully"
@@ -114,4 +116,69 @@ const updateUserDetails = async (req, res) => {
   }
 };
 
-module.exports = { register, otpVerification, updateUserDetails }
+
+
+const login = async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    const user = await User.findOne({ email: email });
+    if (!user) {
+      return res.status(401).json({
+        status: false,
+        data: "",
+        message: 'Invalid email or password'
+      });
+    }
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+    if (!isPasswordValid) {
+      return res.status(401).json({
+        status: false,
+        data: "",
+        message: 'Invalid email or password'
+      });
+    }
+    const token = generateJWTToken(user._id);
+    console.log(token)
+    const updateUser = await User.findByIdAndUpdate(
+      user._id,
+      { refreshToken: token },
+      { new: true }
+    );
+    console.log(updateUser);
+    res.json({
+      status: true,
+      data: updateUser,
+      message: "login sucessfully"
+    });
+  } catch (error) {
+    console.error('Error in login:', error);
+    res.status(500).json({
+      status: false,
+      data: "",
+      message: 'Internal Server Error'
+    });
+  }
+};
+
+const getUserInfo = async (req, res) => {
+  try {
+    const user = await User.findById(req.userId);
+    if (!user) {
+      return res.status(404).json({
+        status: false,
+        data: "", data: "",
+        message: 'User not found'
+      });
+    }
+    res.json({ data: user, message: "user fetched sucessfully" });
+  } catch (error) {
+    console.error('Error in fetching user information:', error);
+    res.status(500).json({
+      status: true,
+      data: "",
+      message: 'Internal Server Error'
+    });
+  }
+};
+
+module.exports = { register, otpVerification, updateUserDetails, login, getUserInfo }

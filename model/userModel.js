@@ -21,6 +21,10 @@ const userSchema = new mongoose.Schema({
   emailOtp: {
     type: String,
   },
+  refreshToken: {
+    type: String,
+    default: "",
+  },
   location: {
     type: String,
   },
